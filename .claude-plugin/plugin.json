@@ -13,5 +13,7 @@
     "hooks",
     "multi-agent",
     "phraseology"
-  ]
+  ],
+  "homepage": "https://github.com/c10dev/radio-discipline-plugin",
+  "repository": "https://github.com/c10dev/radio-discipline-plugin"
 }

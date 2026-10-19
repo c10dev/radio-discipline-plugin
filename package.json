@@ -4,9 +4,17 @@
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "bin": { "radio": "bin/radio.mjs" },
-  "engines": { "node": ">=22" },
+  "bin": {
+    "radio": "bin/radio.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node --test test/*.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/c10dev/radio-discipline-plugin.git"
   }
 }

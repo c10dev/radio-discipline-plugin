@@ -49,10 +49,10 @@ The hook does nothing in a folder without `.radio/config.json`, so installing th
 
 Requirements: Node 22 or later, and Claude Code with agent teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) or cross-session messaging.
 
-From GitHub (replace `<owner>/<repo>` with where this repository lives):
+From GitHub:
 
 ```
-/plugin marketplace add <owner>/<repo>
+/plugin marketplace add c10dev/radio-discipline-plugin
 /plugin install radio-discipline@radio-discipline
 ```
 

@@ -125,6 +125,8 @@ function main() {
   try {
     decision = withLock(radioDir, () => {
       const d = decide(input.tool_input, readLedger(radioDir), cfg, new Date(), input.session_id ?? null, cfg.filed ? readDocs(radioDir) : []);
+      // the tool call's id lets radio-undelivered find this line if SendMessage then fails to deliver
+      if (d.entry && !d.block && input.tool_use_id) d.entry.tool = input.tool_use_id;
       for (const e of [d.entry, ...(d.extra ?? [])]) if (e) appendLedger(radioDir, e);
       return d;
     });

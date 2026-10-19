@@ -61,6 +61,8 @@ The hook adds a note to your next send when one of your calls is overdue (no rep
 
 Do not resend more than once. Do not wait silently.
 
+If `SendMessage` says it did not deliver a message (for example, no agent by that name is reachable), the message does not count as sent: the clock does not wait for it and it uses up no resend. Check the receiver's name and send it again with the same id (`[CALL R-7] W/U …`, or the same reply head), or tell the user.
+
 You are told to escalate once. After that the call is retired: no more notes, and the clock no longer waits for it. If the agent answers late, its reply still counts: `DONE` or `UNABLE` closes the call, and `WILCO` or `STANDBY` starts a new timer.
 
 When you are about to go idle while calls you sent are open, the radio clock (a Stop hook) keeps you waiting until a message arrives or a call becomes overdue (18 minutes at most by default). If it stops you with an overdue note, do what the note says.

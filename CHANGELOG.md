@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+- **A message that `SendMessage` did not deliver no longer counts as sent.** Before, a call to an agent that was not reachable was still recorded as an open call, so the radio clock held the session for the ack timeout, asked for a resend and then escalated a message that nobody received. Found in a live run: a call to `ghost` held the session about 3 minutes, then asked for a resend, then escalated after 3 more.
+  - New `PostToolUse` hook `radio-undelivered` on `SendMessage`. When the result reports a failure (`success: false`, or an error result), it appends an `undelivered` line to the ledger with the call id, the head word for a reply, a reason class (`unreachable`, `rejected` or `error`) and the tool call id. It never stores the message text or the result text. It tells the model that the message was not delivered and does not count as sent.
+  - `radio-check` records the `SendMessage` tool call id (`tool`) on each message line, so the two hooks match the same message.
+  - The ledger leaves undelivered messages out: an undelivered call is not open, so the clock does not wait for it and no overdue note names it. An undelivered reply does not answer or close its call. An undelivered resend uses up no resend. A later resend with the same id that is delivered counts as the first send.
+  - A message from another session that was not delivered does not end the clock's wait.
+  - `radio.mjs stats` counts `undelivered` lines.
+
 ## 0.1.1
 
 Fixes from an independent check of 0.1.0. Each has a regression test.

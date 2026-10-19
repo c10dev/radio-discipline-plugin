@@ -52,23 +52,29 @@ Answer **before you start the work**. The reply is the first thing you do.
 
 ## 3. When nobody answers
 
-The hook adds a note to your next send when one of your calls is overdue (no reply in 3 minutes, or no `DONE` or `STANDBY` in 15 minutes after `WILCO`). You can also run `node <plugin root>/bin/radio.mjs status`. This skill's folder is `<plugin root>/skills/radio-discipline`.
+The hook adds a note to your next send when one of your calls is overdue (no reply in 3 minutes, or no `DONE` or `STANDBY` in 15 minutes after `WILCO`). You can also run `radio.mjs status` (or `node <plugin root>/bin/radio.mjs status`). This skill's folder is `<plugin root>/skills/radio-discipline`.
 
-1. **First time overdue:** resend once with the same id and attribute: `[CALL R-7] W/U …`.
+1. **First time overdue:** resend once with the same id and attribute: `[CALL R-7] W/U …`. Only the session that sent a call resends it; the hook blocks a resend of someone else's call.
 2. **Overdue again:** stop waiting. Tell the user, on a line of its own:
    `ESCALATE: R-7 to <name> — no reply after one resend`
    Then plan as if that agent is gone.
 
 Do not resend more than once. Do not wait silently.
 
-When you are about to go idle while calls you sent are open, the radio clock (a Stop hook) keeps you waiting until a message arrives or a call becomes overdue. If it stops you with an overdue note, do what the note says.
+You are told to escalate once. After that the call is retired: no more notes, and the clock no longer waits for it. If the agent answers late, its reply still counts: `DONE` or `UNABLE` closes the call, and `WILCO` or `STANDBY` starts a new timer.
+
+When you are about to go idle while calls you sent are open, the radio clock (a Stop hook) keeps you waiting until a message arrives or a call becomes overdue (18 minutes at most by default). If it stops you with an overdue note, do what the note says.
+
+## 3a. Other folders
+
+A frequency is one `.radio` folder. Sessions working in other folders are on another frequency unless that folder was joined with `radio.mjs init --join <folder>`. If the hook blocks your reply because the id "is not a call on this frequency" and you copied the id from the call you received, the caller is in another folder: tell the user, and do not invent a new id.
 
 ## 4. Filed documents (when the project turns on "filed")
 
 Long work orders and reports do not go in messages. They live in a document table, and a message carries only a reference like `WO-3@a1b2c3` (the id and the first 6 hex digits of the text's hash).
 
-- Read one: `node <plugin root>/bin/radio.mjs read WO-3@a1b2c3`
-- File one: write it to a file, then `node <plugin root>/bin/radio.mjs file RPT "<title>" <file>`. It prints the reference.
+- Read one: `radio.mjs read WO-3@a1b2c3`
+- File one: write it to a file, then `radio.mjs file RPT "<title>" <file>`. It prints the reference.
 - A call that carries a reference must be answered with that reference on the first line: `WILCO R-7 WO-3@a1b2c3`. That shows you read that exact version. The hook blocks a reply without it.
 - Copy references exactly. A reference that is not in the table is blocked.
 
@@ -77,8 +83,9 @@ Long work orders and reports do not go in messages. They live in a document tabl
 The hook does nothing until a project opts in:
 
 ```
-node <plugin root>/bin/radio.mjs init            # enforce: bad heads are blocked
-node <plugin root>/bin/radio.mjs init --mode log # log only: record, never block
+radio.mjs init                 # enforce: bad heads are blocked
+radio.mjs init --mode log      # log only: record, never block
+radio.mjs init --join <folder> # share the frequency of another folder
 ```
 
-This writes `.radio/config.json`. The ledger is `.radio/ledger.jsonl`: heads, ids, sizes and times, never message text. `radio.mjs stats` counts it.
+`radio.mjs` is the plugin's `bin/radio.mjs`; the Bash tool finds it on its `PATH`, or run `node <plugin root>/bin/radio.mjs`. This writes `.radio/config.json`. The ledger is `.radio/ledger.jsonl`: heads, ids, sizes and times, never message text. `radio.mjs stats` counts it.

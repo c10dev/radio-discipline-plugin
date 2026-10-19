@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { unsentHead } from "../lib/unsent.mjs";
+import { unsentEntry, unsentHead } from "../lib/unsent.mjs";
 
 const prompt = (text) => ({ type: "user", message: { content: text } });
 const said = (...content) => ({ type: "assistant", message: { content } });
@@ -35,4 +35,15 @@ test("a tool result does not start a new turn", () => {
 test("radio send through Bash counts as sent", () => {
   const e = [prompt("[CALL R-1] W/U a"), said({ type: "tool_use", name: "Bash", input: { command: "node /p/bin/radio.mjs send 'DONE R-1 — ok'" } }), result, said(text("DONE R-1 — ok"))];
   assert.equal(unsentHead(e), null);
+});
+
+test("markdown is removed only at word edges: paths and tokens keep their underscores", () => {
+  const e = [prompt("[CALL R-1] W/U a"), said(text("**DONE R-1 — fixed my_file.ts, token ghp_abc**"))];
+  assert.equal(unsentHead(e), "DONE R-1 — fixed my_file.ts, token ghp_abc");
+});
+
+test("the unsent ledger line holds the parsed head, never the text", () => {
+  const at = new Date("2026-10-05T12:00:00Z");
+  assert.deepEqual(unsentEntry("DONE R-1 — 212 passed, secret-ish note", "s1", at), { v: 1, at: at.toISOString(), session: "s1", kind: "unsent", head: "reply", word: "DONE", id: "R-1" });
+  assert.deepEqual(unsentEntry("[CALL] W/U Rotate the payments key", "s1", at), { v: 1, at: at.toISOString(), session: "s1", kind: "unsent", head: "call", id: null, attr: "W/U" });
 });

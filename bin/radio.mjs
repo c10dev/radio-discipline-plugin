@@ -107,6 +107,7 @@ function stats() {
     replies: count((e) => e.kind === "reply"),
     blocked: count((e) => e.kind === "blocked"),
     unheaded: count((e) => e.kind === "unheaded"),
+    undelivered: count((e) => e.kind === "undelivered"),
     replyWords: words,
     rejectReasons: reasons,
     closed: states.filter((s) => s.status === "closed").length,

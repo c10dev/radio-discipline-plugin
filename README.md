@@ -2,7 +2,7 @@
 
 Aviation-style radio discipline for Claude Code agents that message each other.
 
-> Status: 0.1.1, unproven. The plugin works and is tested. Whether it makes teams of agents more reliable has not been measured yet, so nothing here claims an effect.
+> Status: 0.1.2, unproven. The plugin works and is tested. Whether it makes teams of agents more reliable has not been measured yet, so nothing here claims an effect.
 
 ## The problem
 
@@ -40,6 +40,7 @@ lead → dave   [CALL R-9] W/U Update the changelog.
   - blocks a message whose first line is not a valid head, and tells the model how to fix it;
   - checks that a reply uses a real id and a word that fits the call (`ROGER` cannot answer an instruction);
   - adds a note about your own overdue calls to the next message you send: resend once, then escalate. Only the session that sent a call may resend it.
+- **A `PostToolUse` hook on `SendMessage`** ([hooks/radio-undelivered.mjs](hooks/radio-undelivered.mjs)): when `SendMessage` reports that it did not deliver a message (for example, no agent by that name is reachable), it marks the message undelivered in the ledger and tells the model. An undelivered call is not open: the clock does not wait for it and no overdue note names it. A resend with the same id that is delivered counts as the first send.
 - **Two `Stop` hooks** (see [Stop hooks](#stop-hooks)): one catches a head written as text instead of sent; the other keeps a session with open calls waiting for the answers.
 - **A ledger** (`.radio/ledger.jsonl`): heads, ids, sizes and times of every message. Never the text.
 - **A small CLI** (`bin/radio.mjs`): `init`, `status`, `stats`, `help` and more.
@@ -68,7 +69,7 @@ radio.mjs init        # or: radio.mjs init --mode log
 From a terminal, run the CLI from the plugin cache. The last folder is the installed version, so it changes with each update (and `~/.claude` is `$CLAUDE_CONFIG_DIR` if you set that):
 
 ```bash
-node ~/.claude/plugins/cache/radio-discipline/radio-discipline/0.1.1/bin/radio.mjs init
+node ~/.claude/plugins/cache/radio-discipline/radio-discipline/0.1.2/bin/radio.mjs init
 ```
 
 From a local clone, without installing:
@@ -126,7 +127,7 @@ Everything is in the frequency's `.radio` folder. Only the ledger promises to ho
 | File | Holds | Message text? |
 |---|---|---|
 | `config.json` | the settings above | no |
-| `ledger.jsonl` | one line per message: time, session, receiver, kind, head word, call id, attribute, document references, line and character counts, reject reason; one line per overdue note from the clock; one line per head written as text but not sent (its kind, word, id and attribute) | never |
+| `ledger.jsonl` | one line per message: time, session, receiver, kind, head word, call id, attribute, document references, line and character counts, reject reason, and the id of the `SendMessage` tool call; one line per overdue note from the clock; one line per head written as text but not sent (its kind, word, id and attribute); one line per message that `SendMessage` did not deliver (its kind, word, id, tool call id and a reason class: `unreachable`, `rejected` or `error`) | never |
 | `docs.jsonl` | filed documents (`radio.mjs file`), with their full text | yes, by design |
 | `inbox.jsonl` | messages sent with `radio.mjs send`, for a script dispatcher to read | yes, by design |
 | `debug.jsonl` | with `debug: true` only: the first 80 characters of each message's first line | yes, a few words |

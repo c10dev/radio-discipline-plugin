@@ -10,7 +10,7 @@
       "name": "radio-discipline",
       "source": "./",
       "description": "Aviation-style radio discipline for Claude Code agents that message each other: every call says which reply closes it, every reply starts with WILCO, UNABLE, STANDBY or DONE and the call id, and silent calls are resent once and then escalated.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "license": "Apache-2.0",
       "category": "productivity"
     }

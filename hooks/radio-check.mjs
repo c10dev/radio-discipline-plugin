@@ -9,19 +9,25 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checkMessage, checkRefs, explain, firstLine } from "../lib/phraseology.mjs";
 import { findDoc, parseRefs, readDocs } from "../lib/docs.mjs";
-import { appendLedger, callStates, callsOf, findRadioDir, nextId, overdueLines, readConfig, readLedger, withLock } from "../lib/ledger.mjs";
+import { appendLedger, callStates, callsOf, nextId, openRadio, overdueLines, readLedger, withLock } from "../lib/ledger.mjs";
 
 const lineCount = (text) => text.split(/\r?\n/).filter((l) => l.trim() !== "").length;
 
 // Decide what to do with one SendMessage call. Pure apart from the ledger it is given.
 // entries = null means the ledger could not be read: ids are then not checked.
-// Returns { block: reason text } or { entry, message, context }.
+// session is the sender. Overdue notes cover only calls this session sent, and only it may resend them.
+// Returns { block: reason text, entry } or { entry, message, context, extra }; extra holds ledger
+// lines to write after entry (calls whose caller this note tells to escalate, so they are retired).
 export function decide(toolInput, entries, cfg, now = new Date(), session = null, docs = []) {
   const message = toolInput?.message;
-  if (typeof message !== "string") return { entry: null, message: null, context: null };
+  if (typeof message !== "string") return { entry: null, message: null, context: null, extra: [] };
   const calls = entries ? callsOf(entries) : null;
   entries ??= [];
   let result = checkMessage(message, calls);
+  if (result.ok && result.head.kind === "call" && result.head.id) {
+    const owner = entries.find((e) => e.kind === "call" && e.id === result.head.id)?.session ?? null;
+    if (owner !== null && owner !== session) result = { ok: false, reason: "not-your-call", head: result.head };
+  }
   if (result.ok && cfg.filed && result.head) {
     const callRefs = new Map(entries.filter((e) => e.kind === "call" && e.ref && !e.resend).map((e) => [e.id, e.ref]));
     const r = checkRefs(message, result.head, docs, callRefs, parseRefs);
@@ -31,8 +37,8 @@ export function decide(toolInput, entries, cfg, now = new Date(), session = null
 
   if (!result.ok) {
     const entry = { ...base, kind: cfg.mode === "enforce" ? "blocked" : "unheaded", reason: result.reason, head: result.head?.kind ?? null };
-    if (cfg.mode === "enforce") return { block: explain(result.reason, result.head, calls), entry };
-    return { entry, message: null, context: null };
+    if (cfg.mode === "enforce") return { block: explain(result.reason, result.head, calls, result.fix), entry };
+    return { entry, message: null, context: null, extra: [] };
   }
 
   const head = result.head;
@@ -64,12 +70,13 @@ export function decide(toolInput, entries, cfg, now = new Date(), session = null
     }
   }
 
-  const states = callStates([...entries, entry], now.getTime(), cfg);
-  const late = overdueLines(states, now.getTime());
+  const mine = callStates([...entries, entry], now.getTime(), cfg).filter((s) => s.session === session);
+  const late = overdueLines(mine, now.getTime());
+  const extra = mine.filter((s) => s.overdue && s.action === "escalate").map((s) => ({ v: 1, at: now.toISOString(), session, kind: "clock", id: s.id, action: "escalate" }));
   const notes = [];
   if (sent) notes.push(`radio: sent as ${firstLine(sent)}`);
   if (late.length) notes.push("radio: overdue calls:", ...late);
-  return { entry, message: sent, context: notes.length ? notes.join("\n") : null };
+  return { entry, message: sent, context: notes.length ? notes.join("\n") : null, extra };
 }
 
 export function hookOutput(toolInput, decision) {
@@ -94,16 +101,15 @@ function main() {
     return 0;
   }
   if (input.tool_name && input.tool_name !== "SendMessage") return 0;
-  const radioDir = findRadioDir(input.cwd || process.cwd());
-  if (!radioDir) return 0;
-
-  let cfg;
+  let radio;
   try {
-    cfg = readConfig(radioDir);
+    radio = openRadio(input.cwd || process.cwd());
   } catch (e) {
-    process.stderr.write(`radio: .radio/config.json is not valid JSON (${e.message}). Fix it or remove it.\n`);
+    process.stderr.write(`radio: ${e.message}. Fix it or remove it.\n`);
     return 2;
   }
+  if (!radio) return 0;
+  const { dir: radioDir, cfg } = radio;
 
   // debug: true in config.json records the shape of each SendMessage input (field names, type, first line).
   // For pilots only: the first line is a head, but it can carry a few words of the call text.
@@ -119,7 +125,7 @@ function main() {
   try {
     decision = withLock(radioDir, () => {
       const d = decide(input.tool_input, readLedger(radioDir), cfg, new Date(), input.session_id ?? null, cfg.filed ? readDocs(radioDir) : []);
-      if (d.entry) appendLedger(radioDir, d.entry);
+      for (const e of [d.entry, ...(d.extra ?? [])]) if (e) appendLedger(radioDir, e);
       return d;
     });
   } catch (e) {

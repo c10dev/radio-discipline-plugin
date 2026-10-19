@@ -61,3 +61,19 @@ test("UNABLE, ROGER, AFFIRM and NEGATIVE close; replies after closing change not
 test("replies to unknown ids are ignored", () => {
   assert.deepEqual(callStates([reply("R-5", "WILCO", 0)], ms(1), cfg), []);
 });
+
+test("an escalation retires the call; a late reply still closes or revives it", () => {
+  const esc = (min, session) => ({ kind: "clock", id: "R-1", action: "escalate", session, at: t(min) });
+  const e = [call("R-1", 0), call("R-1", 4, "W/U", true), esc(8)];
+  const s = one(e, 9);
+  assert.equal(s.status, "escalated");
+  assert.equal(s.overdue, false);
+  assert.equal(s.due, null);
+  assert.deepEqual(overdueLines(callStates(e, ms(30), cfg), ms(30)), []);
+  assert.equal(one([...e, reply("R-1", "DONE", 20)], 21).status, "closed");
+  const revived = one([...e, reply("R-1", "WILCO", 20)], 21);
+  assert.equal(revived.status, "working");
+  assert.equal(one([...e, reply("R-1", "WILCO", 20)], 40).action, "escalate");
+  // only the caller's own escalation retires a call
+  assert.equal(one([call("R-1", 0), call("R-1", 4, "W/U", true), esc(8, "someone-else")], 9).status, "open");
+});

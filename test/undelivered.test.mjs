@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { clockStep } from "../lib/clock.mjs";
 import { callStates, overdueLines } from "../lib/ledger.mjs";
 import { failureOf, sentLine, undeliveredEntry } from "../lib/undelivered.mjs";
+import { decide } from "../hooks/radio-check.mjs";
 import { runClock } from "../hooks/radio-clock.mjs";
 
 // SendMessage results as Claude Code 2.1.303 gives them to a PostToolUse hook (tool_response)
@@ -52,6 +53,13 @@ test("an undelivered call is not open: no overdue note, no wait", () => {
   assert.deepEqual(overdueLines(callStates(e, ms(30), cfg), ms(30)), []);
   assert.equal(clockStep(e, "lead", ms(1), cfg).kind, "done");
   assert.equal(clockStep(e, "lead", ms(30), cfg).kind, "done");
+});
+
+test("the overdue note on the next send does not name an undelivered call", () => {
+  const e = [call("R-1", 0, "toolu_A"), gone("toolu_A", "R-1", 0)];
+  const d = decide({ to: "bob", message: "[CALL] R main is green" }, e, cfg, new Date(ms(10)), "lead");
+  assert.equal(d.context, "radio: sent as [CALL R-2] R main is green");
+  assert.deepEqual(d.extra, []);
 });
 
 test("a delivered resend of an undelivered call revives it as a first send", () => {
